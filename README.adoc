@@ -1,0 +1,110 @@
+= Testbench for Zookeeper Backup Concept
+
+This testbench allows to evaluate how Kafka behaves when a Zookeeper configuration is restored from backup.
+
+This example also shows how Kafka Streams will handle this situation (exactly the same) and how how kStreams handles message headers. These are by default forwarded in the most simple case.
+
+DISCLAIMER: This project is for demonstration purposes only. Using the concept in production is highly discouraged. Use at your own risk.
+
+== Preconditions
+
+Adapt the testbench to your version of Confluent Platform as required by modifying `.env`.
+
+== Running Confluent Platform
+
+Start the containers by running:
+```
+docker compose up -d
+```
+
+Stopping the containers without removing any volumes:
+```
+docker compose down
+```
+
+Stopping the containers with removal of all created volumes (be careful!):
+```
+docker compose down -v
+```
+
+Cleaning up (CAREFUL: THIS WILL DELETE ALL UNUSED VOLUMES):
+```
+docker volumes prune
+```
+
+== Initialize the environment
+
+Create a topic with many partitions:
+
+```shell
+docker compose exec broker1 kafka-topics --bootstrap-server localhost:9092 --create --topic topic-1 --partitions 9 --replication-factor 3
+```
+
+Look at the result:
+
+```shell
+docker compose exec broker1 kafka-topics --bootstrap-server localhost:9092 --describe --topic topic-1
+```
+
+Produce to the topics:
+
+```shell
+docker compose exec broker1 bash -c '(for i in {1..9}; do echo "$i:Message $i"; done) | kafka-console-producer --bootstrap-server localhost:9092 --topic topic-1 --property "parse.key=true" --property "key.separator=:" --property "acks=all"'
+```
+
+Consume from the topic like this, including the headers of the messages:
+
+```shell
+docker compose exec broker1 kafka-console-consumer --bootstrap-server localhost:9092 \
+    --from-beginning \
+    --property print.key=true \
+    --topic topic-1
+```
+
+== Test 1: Shutdown one broker, wait for leader re-assignment
+
+```shell
+docker compose down broker2
+```
+
+Look at the result:
+
+```shell
+docker compose exec broker1 kafka-topics --bootstrap-server localhost:9092 --describe --topic topic-1
+```
+
+Consume from the topic again (no message is lost as we have created 3 replicas):
+
+```shell
+docker compose exec broker1 kafka-console-consumer --bootstrap-server localhost:9092 \
+    --from-beginning \
+    --property print.key=true \
+    --topic topic-1
+```
+
+Start broker again.
+
+```shell
+docker compose up broker2
+```
+
+Look at the result:
+
+```shell
+docker compose exec broker1 kafka-topics --bootstrap-server localhost:9092 --describe --topic topic-1
+```
+
+== Test 1: Create Zookeeper backup. Kill broker. Shutdown Zookeeper. Restore backup. Start Zookeeper again
+TODO
+
+== Useful commands
+
+You can delete the auto-created topic like this:
+
+```shell
+docker compose exec broker1 kafka-topics --bootstrap-server localhost:9092 --delete --topic topic-1
+```
+
+== Results
+
+TODO

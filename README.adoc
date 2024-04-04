@@ -105,6 +105,13 @@ You can delete the auto-created topic like this:
 docker compose exec broker1 kafka-topics --bootstrap-server localhost:9092 --delete --topic topic-1
 ```
 
+Check status of all zookeeper nodes:
+
+```shell
+for PORT in 21811 21812 21813; do echo $PORT; (echo stats | nc localhost ${PORT}|grep -E "Mode|current"); done
+```
+
+
 == Results
 
 TODO

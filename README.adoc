@@ -97,6 +97,8 @@ docker compose exec broker1 kafka-topics --bootstrap-server localhost:9092 --des
 == Test 1: Create Zookeeper backup. Kill broker. Shutdown Zookeeper. Restore backup. Start Zookeeper again
 TODO
 
+Test x: Create backups of all three Zookeepers without shutting them down
+
 == Useful commands
 
 You can delete the auto-created topic like this:

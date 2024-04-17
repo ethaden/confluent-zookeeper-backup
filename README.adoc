@@ -95,9 +95,53 @@ docker compose exec broker1 kafka-topics --bootstrap-server localhost:9092 --des
 ```
 
 == Test 1: Create Zookeeper backup. Kill broker. Shutdown Zookeeper. Restore backup. Start Zookeeper again
-TODO
 
-Test x: Create backups of all three Zookeepers without shutting them down
+Copy Zookeeper config without shutting down Zookeeper nodes:
+```bash
+mkdir backup
+tar cjfv backup/test1.tar.bz2 data
+```
+
+Kill one of the brokers:
+```bash
+docker compose down broker2
+```
+
+Get the list of active brokers from Zookeeper. Note, that `broker2` (ID: 2) is missing as expected:
+```bash
+docker compose exec zookeeper1 zookeeper-shell localhost:21811 ls /brokers/ids
+```
+
+
+Shutdown zookeeper nodes:
+```bash
+docker compose down zookeeper1 zookeeper2 zookeeper3
+```
+
+Simulate loss of all Zookeeper node data (BE EXTRA CAREFUL WHEN RUNNING THIS COMMAND!):
+```bash
+rm -irf ./data/zk?/log/* ./data/zk?/data/*
+```
+
+Restore backup (where `broker2` was still active):
+```bash
+tar -xjvf backup/test1.tar.bz2
+```
+
+Start zookeeper nodes:
+```bash
+docker compose up zookeeper1 zookeeper2 zookeeper3 -d
+```
+
+Check the status of all zookeeper nodes:
+```bash
+docker compose exec broker1 bash -c 'echo ruok | nc zookeeper1 21811; echo ""; echo ruok | nc zookeeper2 21812; echo ""; echo ruok | nc zookeeper3 
+21813; echo ""'
+```
+
+Result: Zookeeper seems to be able to handle this properly. Even though initially the ZK node for `broker2` exists as found in the outdated backup, Zookeeper recognizes that the broker is actually mssing.
+
+Please note that the outcome of this particular experiment does not allow to conclude that this will always work!
 
 == Useful commands
 

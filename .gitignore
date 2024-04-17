@@ -1,0 +1,4 @@
+data/zk*/log/*
+data/zk*/data/*
+*.tar.bz2
+.vscode/

@@ -1,0 +1,176 @@
+---
+services:
+  zookeeper1:
+    image: confluentinc/cp-zookeeper:${CP_VERSION}
+    hostname: zookeeper1
+    container_name: zookeeper1
+    restart: always
+    ports:
+      - "21811:21811"
+      - "31801:31801"
+      - "21801:21801"
+    volumes:
+      - ./data/zk1/log:/var/lib/zookeeper/log
+      - ./data/zk1/data:/var/lib/zookeeper/data
+    environment:
+      ZOOKEEPER_TICK_TIME: 2000
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=*"
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_JMX_HOSTNAME: zookeeper1
+      ZOOKEEPER_CLIENT_PORT: 21811
+      ZOOKEEPER_JMX_PORT: 21801
+      ZOOKEEPER_SERVERS: zookeeper1:2888:3888;zookeeper2:2888:3888;zookeeper3:2888:3888
+ 
+  zookeeper2:
+    image: confluentinc/cp-zookeeper:${CP_VERSION}
+    hostname: zookeeper2
+    container_name: zookeeper2
+    restart: always
+    ports:
+      - "21812:21812"
+      - "31802:31802"
+      - "21802:21802"
+    volumes:
+      - ./data/zk2/log:/var/lib/zookeeper/log
+      - ./data/zk2/data:/var/lib/zookeeper/data
+    environment:
+      ZOOKEEPER_TICK_TIME: 2000
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=*"
+      ZOOKEEPER_SERVER_ID: 2
+      ZOOKEEPER_JMX_HOSTNAME: zookeeper2
+      ZOOKEEPER_CLIENT_PORT: 21812
+      ZOOKEEPER_JMX_PORT: 21802
+      ZOOKEEPER_SERVERS: zookeeper1:2888:3888;zookeeper2:2888:3888;zookeeper3:2888:3888
+
+  zookeeper3:
+    image: confluentinc/cp-zookeeper:${CP_VERSION}
+    hostname: zookeeper3
+    container_name: zookeeper3
+    restart: always
+    ports:
+      - "21813:21813"
+      - "31803:31803"
+      - "21803:21803"
+    volumes:
+      - ./data/zk3/log:/var/lib/zookeeper/log
+      - ./data/zk3/data:/var/lib/zookeeper/data
+    environment:
+      ZOOKEEPER_TICK_TIME: 2000
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=*"
+      ZOOKEEPER_SERVER_ID: 3
+      ZOOKEEPER_JMX_HOSTNAME: zookeeper3
+      ZOOKEEPER_CLIENT_PORT: 21813
+      ZOOKEEPER_JMX_PORT: 21803
+      ZOOKEEPER_SERVERS: zookeeper1:2888:3888;zookeeper2:2888:3888;zookeeper3:2888:3888
+ 
+  broker1:
+    image: confluentinc/cp-server:${CP_VERSION}
+    hostname: broker1
+    container_name: broker1
+    depends_on:
+      - zookeeper1
+      - zookeeper2
+      - zookeeper3
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper1:21811,zookeeper2:21812,zookeeper3:21813'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker1:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_KAFKA_REST_ENABLE: "true"
+
+  broker2:
+    image: confluentinc/cp-server:${CP_VERSION}
+    hostname: broker2
+    container_name: broker2
+    depends_on:
+      - zookeeper1
+      - zookeeper2
+      - zookeeper3
+    ports:
+      - "29093:29093"
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper1:21811,zookeeper2:21812,zookeeper3:21813'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker2:9092,PLAINTEXT_HOST://localhost:29093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_KAFKA_REST_ENABLE: "true"
+
+  broker3:
+    image: confluentinc/cp-server:${CP_VERSION}
+    hostname: broker3
+    container_name: broker3
+    depends_on:
+      - zookeeper1
+      - zookeeper2
+      - zookeeper3
+    ports:
+      - "29094:29094"
+      - "8090:8090"
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper1:21811,zookeeper2:21812,zookeeper3:21813'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker3:9092,PLAINTEXT_HOST://localhost:29094
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_KAFKA_REST_ENABLE: "true"
+      # /: 'http://0.0.0.0:8090'
+      KAFKA_KAFKA_REST_ADVERTISED_LISTENERS: 'http://0.0.0.0:8090'
+  
+  schema-registry:
+    image: confluentinc/cp-schema-registry:${CP_VERSION}
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - zookeeper1
+      - zookeeper2
+      - zookeeper3
+      - broker1
+      - broker2
+      - broker3
+    ports:
+      - '8081:8081'
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker1:9092'
+      SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8081"
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'zookeeper1:21811,zookeeper2:21812,zookeeper3:21813'
+
+  # rest-proxy:
+  #   hostname: rest-proxy
+  #   image: confluentinc/cp-kafka-rest:${TAG}
+  #   ports:
+  #     - 8090:8090
+  #   depends_on:
+  #     - broker1
+  #     - broker2
+  #     - broker3
+  #   environment:
+  #     KAFKA_REST_HOST_NAME: rest-proxy
+  #     KAFKA_REST_BOOTSTRAP_SERVERS: 'broker1:9092'
+  #     KAFKA_REST_LISTENERS: "http://0.0.0.0:8090"
+  #     KAFKA_REST_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+  
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:${CP_VERSION}
+    hostname: control-center
+    container_name: control-center
+    depends_on:
+      - broker1
+      - schema-registry
+    ports:
+      - "9021:9021"
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: 'broker1:9092'
+      CONTROL_CENTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+      CONFLUENT_METRICS_TOPIC_REPLICATION: 1
+      PORT: 9021

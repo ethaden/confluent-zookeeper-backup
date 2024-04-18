@@ -94,12 +94,12 @@ Look at the result:
 docker compose exec broker1 kafka-topics --bootstrap-server localhost:9092 --describe --topic topic-1
 ```
 
-== Test 1: Create Zookeeper backup. Kill broker. Shutdown Zookeeper. Restore backup. Start Zookeeper again
+== Test 2: Create Zookeeper backup. Kill broker. Shutdown Zookeeper. Restore backup. Start Zookeeper again
 
 Copy Zookeeper config without shutting down Zookeeper nodes:
 ```bash
 mkdir backup
-tar cjfv backup/test1.tar.bz2 data
+tar cjfv backup/test2.tar.bz2 data
 ```
 
 Kill one of the brokers:
@@ -108,6 +108,7 @@ docker compose down broker2
 ```
 
 Get the list of active brokers from Zookeeper. Note, that `broker2` (ID: 2) is missing as expected:
+
 ```bash
 docker compose exec zookeeper1 zookeeper-shell localhost:21811 ls /brokers/ids
 ```
@@ -121,11 +122,12 @@ docker compose down zookeeper1 zookeeper2 zookeeper3
 Simulate loss of all Zookeeper node data (BE EXTRA CAREFUL WHEN RUNNING THIS COMMAND!):
 ```bash
 rm -irf ./data/zk?/log/* ./data/zk?/data/*
+rm ./backup/*.tar.bz2
 ```
 
 Restore backup (where `broker2` was still active):
 ```bash
-tar -xjvf backup/test1.tar.bz2
+tar -xjvf backup/test2.tar.bz2
 ```
 
 Start zookeeper nodes:
@@ -143,12 +145,71 @@ Result: Zookeeper seems to be able to handle this properly. Even though initiall
 
 Please note that the outcome of this particular experiment does not allow to conclude that this will always work!
 
+
+== Test 3: Create Zookeeper backup. Create new topic. Shutdown Zookeeper. Restore backup. Start Zookeeper again. Check new topic
+
+Copy Zookeeper config without shutting down Zookeeper nodes:
+```bash
+mkdir backup
+tar cjfv backup/test3.tar.bz2 data
+```
+
+Create a new topic:
+```bash
+docker compose exec broker1 kafka-topics --bootstrap-server localhost:9092 --create --topic topic-2 --partitions 9 --replication-factor 3
+```
+
+Show all topics:
+```bash
+docker compose exec broker1 kafka-topics --bootstrap-server localhost:9092 --list
+```
+
+Shutdown zookeeper nodes:
+```bash
+docker compose down zookeeper1 zookeeper2 zookeeper3
+```
+
+Simulate loss of all Zookeeper node data (BE EXTRA CAREFUL WHEN RUNNING THIS COMMAND!):
+```bash
+rm -irf ./data/zk?/log/* ./data/zk?/data/*
+```
+
+Restore backup (where `broker2` was still active):
+```bash
+tar -xjvf backup/test3.tar.bz2
+```
+
+Start zookeeper nodes:
+```bash
+docker compose up zookeeper1 zookeeper2 zookeeper3 -d
+```
+
+Check the status of all zookeeper nodes:
+```bash
+docker compose exec broker1 bash -c 'echo ruok | nc zookeeper1 21811; echo ""; echo ruok | nc zookeeper2 21812; echo ""; echo ruok | nc zookeeper3 21813; echo ""'
+```
+
+```bash
+docker compose exec zookeeper1 zookeeper-shell localhost:21811 ls /brokers/topics
+```
+
+Show all topics:
+```bash
+docker compose exec broker1 kafka-topics --bootstrap-server localhost:9092 --list
+```
+
+Result: The newly created topic is not known to Zookeeper anymore, but shown by Kafka. The state of Kafka persisted to Zookeeper does not reflect the state in Kafka anymore. It is unclear how Kafka will react on that (e.g. handle the existing data files for that topic). Complete loss of data might be the result.
+
+Please note that the outcome of this particular experiment does not allow to conclude that this will always work!
+
+
 == Useful commands
 
 You can delete the auto-created topic like this:
 
 ```shell
 docker compose exec broker1 kafka-topics --bootstrap-server localhost:9092 --delete --topic topic-1
+docker compose exec broker1 kafka-topics --bootstrap-server localhost:9092 --delete --topic topic-2
 ```
 
 Check status of all zookeeper nodes:
@@ -156,8 +217,3 @@ Check status of all zookeeper nodes:
 ```shell
 for PORT in 21811 21812 21813; do echo $PORT; (echo stats | nc localhost ${PORT}|grep -E "Mode|current"); done
 ```
-
-
-== Results
-
-TODO
